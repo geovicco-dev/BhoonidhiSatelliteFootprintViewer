@@ -1,6 +1,5 @@
 geopandas==1.0.1
-# geemap==0.32.1
-leafmap==0.35.9
+geemap==0.32.1
 mapclassify==2.7.0
 matplotlib==3.9.1
 nbconvert==7.16.4

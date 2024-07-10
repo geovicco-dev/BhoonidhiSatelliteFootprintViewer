@@ -1,7 +1,6 @@
 import streamlit as st
 st.set_page_config(page_title='Bhoonidhi Satellite Footprint Viewer', layout='wide')
-# import geemap.foliumap as geemap
-import leafmap.foliumap as geemap
+import geemap.foliumap as geemap
 import warnings; warnings.filterwarnings('ignore')
 import pandas as pd
 import src.utils as ut
