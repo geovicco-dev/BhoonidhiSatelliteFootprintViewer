@@ -17,7 +17,7 @@ m = geemap.Map(plugin_Draw=False, add_google_map=False)
 st.sidebar.title('Parameters', )
 with st.sidebar:
     ut.add_aoi_selector(mapObject=m)
-    if st.session_state.aoi == "":
+    if st.session_state["aoi"] == "":
         st.info("Select AOI to Proceed")
     else:
         ut.set_params()
