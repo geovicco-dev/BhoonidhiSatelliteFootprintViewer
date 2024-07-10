@@ -70,11 +70,7 @@ def initialize_sessionState():
     if st.session_state.get("zoom_level") is None:
         st.session_state["zoom_level"] = 4
     if st.session_state.get("aoi") is None:
-        st.session_state["aoi"] = 'Not Selected'
-    if st.session_state.get("lat") is None:
-        st.session_state["lat"] = get_bounds('artifacts/india.geojson')[0]
-    if st.session_state.get("lon") is None:
-        st.session_state["lon"] = get_bounds('artifacts/india.geojson')[1]
+        st.session_state["aoi"] = ''
 
 def uploaded_file_to_gdf(data, crs):
     try:
@@ -160,14 +156,11 @@ def add_aoi_selector(mapObject):
                     st.error(e)
                     st.stop()
             else:
-                st.warning("No file was uploaded. Please select a file.")
+                st.info("Upload a GeoJSON or a Zipped Shapefile.")
    
 def set_params():
     with st.expander("Define Processing Parameters"):
-        form = st.form(key='processing-params')       
-        fromDate = form.date_input('Start Date', date.today() - timedelta(days=30))
-        toDate = form.date_input('End Date', date.today()-timedelta(days=1))
-        satellite = form.selectbox("Select Satellite", [
+        satellite = st.selectbox("Select Satellite", [
                 "ResourceSat-1",
                 "ResourceSat-2",
                 "ResourceSat-2A",
@@ -176,6 +169,8 @@ def set_params():
                 "IRS-1C",
                 "IRS-1D"
             ], index=2)
+        
+        satellite_info_component(satellite)
         
         # Define sensor options based on the selected satellite
         if satellite in ["ResourceSat-1", "ResourceSat-2", "ResourceSat-2A"]:
@@ -186,24 +181,23 @@ def set_params():
             sensor_options = ["PAN", "LISS3"]
         else:
             sensor_options = []  # In case none of the above conditions are met
-
-        sensor = form.selectbox("Select Sensor", sensor_options)
-
+        sensor = st.selectbox("Select Sensor", sensor_options, index=0)
+        
+        form = st.form(key='form')       
+        fromDate = form.date_input('Start Date', date.today() - timedelta(days=30))
+        toDate = form.date_input('End Date', date.today()-timedelta(days=1))
+        
         # Date Validation Check
         if toDate - fromDate < timedelta(days=10):
             st.warning('Difference between selected dates is too small. There might not be any scenes available!')
-            # st.stop()
-        submit = form.form_submit_button('Submit')
 
+        # Submit Button
+        submit = form.form_submit_button('Submit')
         if submit:
             st.session_state['fromDate'] = fromDate
             st.session_state["toDate"] = toDate
             st.session_state['satellite'] = satellite
             st.session_state['sensor'] = sensor
-        else:
-            initialize_sessionState()
-            
-        return st.session_state
    
 def get_satellite_sensor():
     satellite = st.session_state['satellite']
@@ -291,7 +285,6 @@ def process_request():
             "Referer": "https://bhoonidhi.nrsc.gov.in/bhoonidhi/index.html",
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0",
             "X-Requested-With": "XMLHttpRequest",
-            # "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJBdXRoIiwiVXNlcklEIjoiT05MX2dlb3ZpY2NvIiwiSVBBZGRyZXNzIjoiMTk0LjYxLjQwLjc3IiwiU2Vzc2lvbklEIjo4LCJleHBpcmVzQXRUaW1lIjoiMjAyNC0wMy0yOSAyMDo1Mjo1OCJ9.YYhaMdKSTfov84oYLhXKUi2dabB8OhV1bZdeXWkKE48"
         }
         response = requests.post(url, headers=headers, json=create_payload(st.session_state["aoi"], start_date=st.session_state['fromDate'], end_date=st.session_state['toDate'], user_id="ONL_geovicco", product="Standard"))
 
@@ -321,13 +314,14 @@ def get_scene_footprint(scene):
     return footprint
 
 def add_scenes_to_map(m):
-    ids, filenames, satellite, sensor, processing_date, footprints = [], [], [], [], [], []
+    ids, filenames, satellite, sensor, processing_date, prod_type, footprints = [], [], [], [], [], [], []
     for item in st.session_state['response']:
         ids.append(item['ID'])
         filenames.append(item['FILENAME'])
         satellite.append(item['SATELLITE'])
         sensor.append(item['SENSOR'])
         processing_date.append(item['DOP'])
+        prod_type.append(item['PRODTYPE'])
         footprints.append(get_scene_footprint(item))
         
     # Create a GeoDataFrame
@@ -338,16 +332,14 @@ def add_scenes_to_map(m):
             'satellite': satellite,
             'sensor': sensor,
             'processing_date': processing_date,
+            'prod_type': prod_type,
             'geometry': footprints
         }
     )
     # Find Scenes Overlapping with Study Area
     scenes = gdf[gdf['geometry'].intersects(st.session_state['aoi'].geometry[0])]
     scenes.set_crs('epsg:4326', inplace=True)
-    # Add Scenes to Map
-    m.add_gdf(scenes, style={"fillColor": "#ff0000",
-            "color": "black",
-            "weight": 0.2,
-            "dashArray": "3, 3",
-            "fillOpacity": 0.1
-        }, layer_name="Scenes Overlapping with AOI") 
+    # Add Scenes to Map based on Product Type
+    for prod_type in scenes['prod_type'].unique():
+        m.add_gdf(scenes[scenes['prod_type'] == prod_type], style={"fillColor": "#ff0000", "color": "black", "weight": 0.2, "dashArray": "3, 3", "fillOpacity": 0.1}, layer_name=prod_type)
+
