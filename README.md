@@ -4,5 +4,5 @@
 
 A simple web application for loading scene footprints from a range of available satellite datasets from ISRO Bhoonidhi
 
-Demo:
-<video src="media/web_app_demp.mov" width="320" height="240" controls></video>
+<img width="1786" alt="image" src="https://github.com/geovicco-dev/BhoonidhiSatelliteFootprintViewer/assets/171540198/67882918-2ed1-4154-a87c-3edf9597a6d2">
+
