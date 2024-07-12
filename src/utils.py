@@ -322,12 +322,17 @@ def get_quicklook_url(scene):
     base_url = "https://bhoonidhi.nrsc.gov.in"
     dirpath = scene["dirpath"]
     filename = scene["filename"]
-    quicklook_url = f"{base_url}/{dirpath}/{filename}.jpg"
+    scene_id = scene["id"]
+    if scene_id == filename:
+        quicklook_url = f"{base_url}/{dirpath}/{filename}.jpg"
+    else:
+        quicklook_url = f"{base_url}/{dirpath}/{filename}.jpeg"
     return quicklook_url
 
 def get_overlapping_scenes():
-    filenames, dirpath, satellite, sensor, processing_date, prod_type, footprints = [], [], [], [], [], [], []
+    ids, filenames, dirpath, satellite, sensor, processing_date, prod_type, footprints = [], [], [], [], [], [], []
     for item in st.session_state['response']:
+        ids.append(item['ID'])
         filenames.append(item['FILENAME'])
         dirpath.append(item['DIRPATH'])
         satellite.append(item['SATELLITE'])
@@ -339,6 +344,7 @@ def get_overlapping_scenes():
     # Create a GeoDataFrame
     gdf = gpd.GeoDataFrame(
         {
+            'id': ids,
             'filename': filenames,
             'dirpath': dirpath,
             'satellite': satellite,
@@ -383,10 +389,7 @@ def create_popup_html(properties):
     
 def add_scenes_to_map(m):
     scenes = get_overlapping_scenes()
-    # # Add Scenes to Map based on Product Type
-    # for prod_type in scenes['prod_type'].unique():
-    #     m.add_gdf(scenes[scenes['prod_type'] == prod_type], style={"fillColor": "#ff0000", "color": "black", "weight": 0.2, "dashArray": "3, 3", "fillOpacity": 0.1}, layer_name=prod_type)
-
+    
     # Add Scenes to Map based on Product Type
     for prod_type in scenes['prod_type'].unique():
         scenes_of_type = scenes[scenes['prod_type'] == prod_type]
