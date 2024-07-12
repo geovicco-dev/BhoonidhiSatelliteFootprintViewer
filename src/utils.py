@@ -330,7 +330,7 @@ def get_quicklook_url(scene):
     return quicklook_url
 
 def get_overlapping_scenes():
-    ids, filenames, dirpath, satellite, sensor, processing_date, prod_type, footprints = [], [], [], [], [], [], []
+    ids, filenames, dirpath, satellite, sensor, processing_date, prod_type, footprints = [], [], [], [], [], [], [], []
     for item in st.session_state['response']:
         ids.append(item['ID'])
         filenames.append(item['FILENAME'])
