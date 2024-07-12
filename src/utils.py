@@ -8,6 +8,7 @@ import zipfile
 from datetime import date, timedelta
 import datetime
 from shapely.geometry import Polygon
+import folium
 
 def get_bounds(shp_path):
     gdf = gpd.read_file(shp_path)
@@ -129,7 +130,7 @@ def uploaded_file_to_gdf(data, crs):
             os.rmdir(os.path.join(tempfile.gettempdir(), file_id))
             
 def add_aoi_selector(mapObject):
-    with st.expander("Select Area of Interest (AOI)", False):
+    with st.expander("Select Area of Interest (AOI)", True):
         optionsList = ["Enter URL", "Upload Shapefile/GeoJSON"]
         option = st.radio("Select Option", optionsList)
         if option == optionsList[0]:
@@ -228,7 +229,7 @@ def get_satellite_sensor():
         st.error('Invalid selection. Please try again.')
         st.stop()
 
-def create_payload(gdf, start_date=None, end_date=None, user_id="ONL_geovicco", product="Standard"):
+def create_payload(gdf, start_date=None, end_date=None, product="Standard"):
     # Ensure the GeoDataFrame is in EPSG:4326 (lat/lon)
     gdf = gdf.to_crs(epsg=4326)
     
@@ -253,9 +254,7 @@ def create_payload(gdf, start_date=None, end_date=None, user_id="ONL_geovicco", 
         sat_sen = sat_sen
     
     payload = {
-        "userId": user_id,
         "prod": product,
-        # "selSats": "ResourceSat-2A_LISS4(MX70)_L2",
         "selSats": sat_sen,
         "offset": "0",
         "sdate": sdate,
@@ -277,16 +276,15 @@ def process_request():
         url = "https://bhoonidhi.nrsc.gov.in/bhoonidhi/ProductSearch"
 
         headers = {
-            "Accept": "application/json, text/javascript, */*; q=0.01",
+            # "Accept": "application/json, text/javascript, */*; q=0.01",
             "Content-Type": "application/json",
-            "Cookie": "JSESSIONID=DCDEFB2CC110E6D640107E61CD140D8A; JSESSIONID=0B5B7E65E295B5BF0AA5AC91F8466640",
-            "DNT": "1",
-            "Origin": "https://bhoonidhi.nrsc.gov.in",
-            "Referer": "https://bhoonidhi.nrsc.gov.in/bhoonidhi/index.html",
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0",
-            "X-Requested-With": "XMLHttpRequest",
+            # "DNT": "1",
+            # "Origin": "https://bhoonidhi.nrsc.gov.in",
+            # "Referer": "https://bhoonidhi.nrsc.gov.in/bhoonidhi/index.html",
+            # "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0",
+            # "X-Requested-With": "XMLHttpRequest",
         }
-        response = requests.post(url, headers=headers, json=create_payload(st.session_state["aoi"], start_date=st.session_state['fromDate'], end_date=st.session_state['toDate'], user_id="ONL_geovicco", product="Standard"))
+        response = requests.post(url, headers=headers, json=create_payload(st.session_state["aoi"], start_date=st.session_state['fromDate'], end_date=st.session_state['toDate'], product="Standard"))
 
         if response.status_code == 200:
             data = response.json()
@@ -313,11 +311,25 @@ def get_scene_footprint(scene):
     footprint = Polygon([nw, ne, se, sw])
     return footprint
 
-def add_scenes_to_map(m):
-    ids, filenames, satellite, sensor, processing_date, prod_type, footprints = [], [], [], [], [], [], []
+def get_scene_meta_url(scene):
+    base_url = "https://bhoonidhi.nrsc.gov.in"
+    dirpath = scene["dirpath"]
+    filename = scene["filename"]
+    meta_url = f"{base_url}/{dirpath}/{filename}.meta"
+    return meta_url
+
+def get_quicklook_url(scene):
+    base_url = "https://bhoonidhi.nrsc.gov.in"
+    dirpath = scene["dirpath"]
+    filename = scene["filename"]
+    quicklook_url = f"{base_url}/{dirpath}/{filename}.jpg"
+    return quicklook_url
+
+def get_overlapping_scenes():
+    filenames, dirpath, satellite, sensor, processing_date, prod_type, footprints = [], [], [], [], [], [], []
     for item in st.session_state['response']:
-        ids.append(item['ID'])
         filenames.append(item['FILENAME'])
+        dirpath.append(item['DIRPATH'])
         satellite.append(item['SATELLITE'])
         sensor.append(item['SENSOR'])
         processing_date.append(item['DOP'])
@@ -327,8 +339,8 @@ def add_scenes_to_map(m):
     # Create a GeoDataFrame
     gdf = gpd.GeoDataFrame(
         {
-            'id': ids,
             'filename': filenames,
+            'dirpath': dirpath,
             'satellite': satellite,
             'sensor': sensor,
             'processing_date': processing_date,
@@ -338,8 +350,70 @@ def add_scenes_to_map(m):
     )
     # Find Scenes Overlapping with Study Area
     scenes = gdf[gdf['geometry'].intersects(st.session_state['aoi'].geometry[0])]
-    scenes.set_crs('epsg:4326', inplace=True)
+    
+    # Get Scene Metadata
+    scenes["metadata"] = scenes.apply(get_scene_meta_url, axis=1)
+
+    # Add Quicklook URL
+    scenes["quicklook"] = scenes.apply(get_quicklook_url, axis=1)
+
+    scenes.set_crs('epsg:4326', inplace=True)   
+    
+    return scenes 
+    
+# Function to create HTML content for popup
+def create_popup_html(properties):
+    filename = properties['filename']
+    satellite = properties['satellite']
+    sensor = properties['sensor']
+    processing_date = properties['processing_date']
+    metadata_url = properties['metadata']
+    quicklook_url = properties['quicklook']
+    
+    html = f"""
+    <b>Filename:</b> {filename}<br>
+    <b>Satellite:</b> {satellite}<br>
+    <b>Sensor:</b> {sensor}<br>
+    <b>Processing Date:</b> {processing_date}<br>
+    <b></b> <a href="{metadata_url}" target="{metadata_url}">View Metadata</a><br>
+    <b></b> <a href="{quicklook_url}" target="_blank">View Quicklook</a>
+    """
+    return html    
+    
+    
+def add_scenes_to_map(m):
+    scenes = get_overlapping_scenes()
+    # # Add Scenes to Map based on Product Type
+    # for prod_type in scenes['prod_type'].unique():
+    #     m.add_gdf(scenes[scenes['prod_type'] == prod_type], style={"fillColor": "#ff0000", "color": "black", "weight": 0.2, "dashArray": "3, 3", "fillOpacity": 0.1}, layer_name=prod_type)
+
     # Add Scenes to Map based on Product Type
     for prod_type in scenes['prod_type'].unique():
-        m.add_gdf(scenes[scenes['prod_type'] == prod_type], style={"fillColor": "#ff0000", "color": "black", "weight": 0.2, "dashArray": "3, 3", "fillOpacity": 0.1}, layer_name=prod_type)
+        scenes_of_type = scenes[scenes['prod_type'] == prod_type]
+        
+        style = {
+            "fillColor": "#ff0000", 
+            "color": "black", 
+            "weight": 0.2, 
+            "dashArray": "3, 3", 
+            "fillOpacity": 0.1
+        }
 
+        # Create a FeatureGroup for the product type
+        feature_group = folium.FeatureGroup(name=f"Footprints - {prod_type}")
+
+        for _, row in scenes_of_type.iterrows():
+            properties = row.to_dict()
+            popup_html = create_popup_html(properties)
+            
+            geojson = folium.GeoJson(
+                row.geometry,
+                style_function=lambda x: style,
+                highlight_function=lambda x: {'weight': 3, 'color': 'red'},
+                zoom_on_click=True,
+                popup=folium.Popup(folium.Html(popup_html, script=True), max_width=800)
+            )
+
+            geojson.add_to(feature_group)
+
+        feature_group.add_to(m)
