@@ -13,7 +13,7 @@ st.title('  Bhoonidhi Satellite Footprint Viewer')
 # Initialize Map
 m = geemap.Map(plugin_Draw=False, add_google_map=False)  
 # Add Draw Export Plugin
-Draw(export=True, position='bottomleft').add_to(m)
+Draw(export=True).add_to(m)
 # Create a Sidebar
 st.sidebar.title('Parameters', )
 with st.sidebar:
