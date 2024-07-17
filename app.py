@@ -10,6 +10,13 @@ ut.initialize_sessionState()
 
 st.title('  Bhoonidhi Satellite Footprint Viewer')
 
+# Add note about the Python package
+st.markdown("""
+**Note:** A Python package `bhoonidhi-downloader` is available for searching and downloading scenes from the Bhoonidhi Portal with valid credentials using the command line.
+- **[PyPI Package](https://pypi.org/project/bhoonidhi-downloader/)**     |      **[GitHub Repository](https://github.com/geovicco-dev/bhoonidhi-downloader)**
+""")
+
+
 # Initialize Map
 m = geemap.Map(plugin_Draw=False, add_google_map=False)  
 # Add Draw Export Plugin
