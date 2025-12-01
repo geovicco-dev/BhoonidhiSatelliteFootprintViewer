@@ -292,7 +292,7 @@ def process_request():
             st.session_state['total_scenes'] = len(data['Results'])
             st.write(f"Scenes found: {len(data['Results'])}")
         else:
-            print("Request failed. Status code:", response.status_code)
+            st.write("Request failed. Status code:", response.status_code)
 
 def get_scene_footprint(scene):
     coord_keys = ['ImgCrnNWLat', 'ImgCrnNWLon', 'ImgCrnNELat', 'ImgCrnNELon', 'ImgCrnSELat', 'ImgCrnSELon', 'ImgCrnSWLat', 'ImgCrnSWLon']

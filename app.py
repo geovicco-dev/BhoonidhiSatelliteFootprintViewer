@@ -1,6 +1,7 @@
 import streamlit as st
 st.set_page_config(page_title='Bhoonidhi Satellite Footprint Viewer', layout='wide')
-import geemap.foliumap as geemap
+# import geemap.foliumap as geemap
+import leafmap.foliumap as leafmap
 import warnings; warnings.filterwarnings('ignore')
 import pandas as pd
 import src.utils as ut
@@ -18,7 +19,7 @@ st.markdown("""
 
 
 # Initialize Map
-m = geemap.Map(plugin_Draw=False, add_google_map=False)  
+m = leafmap.Map(plugin_Draw=False, add_google_map=False)  
 # Add Draw Export Plugin
 Draw(export=True).add_to(m)
 # Create a Sidebar
