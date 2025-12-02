@@ -1,7 +1,7 @@
 from pathlib import Path
 import logging
 
-logging.basicConfig(level=logging.INFO, format='[%(asctime)s]: %(message)s:')
+logging.basicConfig(level=logging.INFO, format="[%(asctime)s]: %(message)s:")
 
 list_of_files = [
     "docs",
@@ -16,7 +16,9 @@ list_of_files = [
 
 for filepath in list_of_files:
     filepath = Path(filepath)
-    if not filepath.suffix:  # If the path does not have a file extension, it's a directory
+    if (
+        not filepath.suffix
+    ):  # If the path does not have a file extension, it's a directory
         if not filepath.exists():
             filepath.absolute().mkdir(parents=True, exist_ok=True)
             logging.info(f"Creating directory: {filepath}")
